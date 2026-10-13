@@ -12,10 +12,13 @@ function initProjectInfoToggle(toggleId, panelId) {
 
   if (!toggle || !panel) return;
 
+  const infoLabel = toggle.getAttribute("aria-label");
+
   toggle.addEventListener("click", () => {
     const isOpen = panel.classList.toggle("is-open");
     toggle.textContent = isOpen ? "(X)" : "(info)";
     toggle.setAttribute("aria-expanded", String(isOpen));
+    toggle.setAttribute("aria-label", isOpen ? "Close information" : infoLabel);
     panel.setAttribute("aria-hidden", String(!isOpen));
   });
 }

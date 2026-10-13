@@ -35,7 +35,7 @@ function renderInfoPanel(project) {
     )
     .join("");
 
-  return `<div id="${id}-info-panel" class="project-info-panel" role="region" aria-labelledby="${id}-info-toggle" aria-hidden="true"><div class="min-h-0"><div class="max-w-prose pb-2 pt-4 text-[14px] font-light leading-[1.4] tracking-[0.01em] text-[#121212] md:max-w-[60ch] lg:text-[12px] lg:leading-[1.3]">${paragraphs}</div></div></div>`;
+  return `<div id="${id}-info-panel" class="project-info-panel" role="region" aria-labelledby="project-${id}-title" aria-hidden="true"><div class="min-h-0"><div class="max-w-prose pb-2 pt-4 text-[14px] font-light leading-[1.4] tracking-[0.01em] text-[#121212] md:max-w-[60ch] lg:text-[12px] lg:leading-[1.3]">${paragraphs}</div></div></div>`;
 }
 
 function renderGalleryFigure(project, image, index, isLcp) {
@@ -60,7 +60,7 @@ function renderGallery(project, isFirstProject = false, isLastProject = false) {
 
 function renderProject(project, isFirstProject = false, isLastProject = false) {
   const id = escapeHtml(project.id);
-  const title = `<div class="flex items-start justify-between gap-4"><div><h2 id="project-${id}-title" class="notranslate m-0 font-light text-[14px] leading-[1.2] tracking-[0.01em] text-[#121212] lg:text-[12px] lg:leading-[1.3]" translate="no">${escapeHtml(project.title)}</h2><p class="notranslate m-0 mt-1 font-light text-[14px] leading-[1.2] tracking-[0.01em] text-[#121212] lg:text-[12px] lg:leading-[1.3]" translate="no">${escapeHtml(project.meta)}</p></div><button type="button" id="${id}-info-toggle" class="notranslate shrink-0 cursor-pointer border-0 bg-transparent p-0 font-light text-[14px] leading-[1.2] tracking-[0.01em] text-[#FB9836] transition-opacity hover:opacity-70 lg:text-[12px] lg:leading-[1.3]" translate="no" aria-expanded="false" aria-controls="${id}-info-panel">(info)</button></div>`;
+  const title = `<div class="flex items-start justify-between gap-4"><div><h2 id="project-${id}-title" class="notranslate m-0 font-light text-[14px] leading-[1.2] tracking-[0.01em] text-[#121212] lg:text-[12px] lg:leading-[1.3]" translate="no">${escapeHtml(project.title)}</h2><p class="notranslate m-0 mt-1 font-light text-[14px] leading-[1.2] tracking-[0.01em] text-[#121212] lg:text-[12px] lg:leading-[1.3]" translate="no">${escapeHtml(project.meta)}</p></div><button type="button" id="${id}-info-toggle" class="notranslate shrink-0 cursor-pointer border-0 bg-transparent p-0 font-light text-[14px] leading-[1.2] tracking-[0.01em] text-[#FB9836] transition-opacity hover:opacity-70 lg:text-[12px] lg:leading-[1.3]" translate="no" aria-expanded="false" aria-controls="${id}-info-panel" aria-label="Information about ${escapeHtml(project.title)}">(info)</button></div>`;
   const info = renderInfoPanel(project);
   const icons = renderProjectIcons(project);
 
@@ -87,7 +87,7 @@ function renderAboutGroup(group, isLast = false) {
   const padBottom = isLast
     ? " pb-6 lg:pb-0 min-[1600px]:pb-0"
     : " lg:pb-0.5 min-[1600px]:pb-[clamp(0.125rem,0.35vh,0.375rem)]";
-  return `<div class="notranslate mt-6 grid grid-cols-[125px_1fr] items-start gap-x-2 border-t border-[#DADADA] pt-4 md:grid-cols-2 lg:mt-0 lg:grid-cols-[minmax(9rem,max-content)_minmax(0,1fr)] lg:gap-x-1.5 lg:gap-y-1 lg:pt-3 min-[1600px]:gap-x-2 min-[1600px]:gap-y-[clamp(0.25rem,0.5vh,0.5rem)] min-[1600px]:pt-[clamp(0.875rem,0.85vh,1.25rem)] min-[1920px]:pt-[clamp(1rem,1vh,1.5rem)]${padBottom}" translate="no"><div class="flex min-w-0 items-center gap-1.5 font-normal"><img src="assets/icons/${escapeHtml(group.icon)}.svg" alt="" width="12" height="12" class="${ABOUT_ICON_SIZE} shrink-0 [image-rendering:pixelated]" /><span class="min-w-0">${escapeHtml(group.title)}</span></div><ul class="m-0 min-w-0 list-none p-0">${group.items.map(renderAboutListItem).join("")}</ul></div>`;
+  return `<div class="notranslate mt-6 grid grid-cols-[125px_1fr] items-start gap-x-2 border-t border-[#DADADA] pt-4 md:grid-cols-2 lg:mt-0 lg:grid-cols-[minmax(9rem,max-content)_minmax(0,1fr)] lg:gap-x-1.5 lg:gap-y-1 lg:pt-3 min-[1600px]:gap-x-2 min-[1600px]:gap-y-[clamp(0.25rem,0.5vh,0.5rem)] min-[1600px]:pt-[clamp(0.875rem,0.85vh,1.25rem)] min-[1920px]:pt-[clamp(1rem,1vh,1.5rem)]${padBottom}" translate="no"><div class="flex min-w-0 items-center gap-1.5 font-normal"><img src="assets/icons/${escapeHtml(group.icon)}.svg" alt="" width="12" height="12" class="${ABOUT_ICON_SIZE} shrink-0 [image-rendering:pixelated]" /><h2 class="m-0 min-w-0 p-0 font-normal text-[length:inherit] leading-[inherit]">${escapeHtml(group.title)}</h2></div><ul class="m-0 min-w-0 list-none p-0">${group.items.map(renderAboutListItem).join("")}</ul></div>`;
 }
 
 function renderCloseButton() {
@@ -123,10 +123,10 @@ ${about.groups
   .map((group, index) => renderAboutGroup(group, index === about.groups.length - 1))
   .join("\n")}
 </div>
-<div class="${COLUMN_COPYRIGHT_CLASSES} notranslate justify-between lg:mt-auto min-[1600px]:pb-[clamp(0.25rem,0.5vh,0.5rem)] min-[1600px]:pt-[clamp(0.375rem,0.75vh,0.75rem)]" translate="no">
+<footer class="${COLUMN_COPYRIGHT_CLASSES} notranslate justify-between lg:mt-auto min-[1600px]:pb-[clamp(0.25rem,0.5vh,0.5rem)] min-[1600px]:pt-[clamp(0.375rem,0.75vh,0.75rem)]" translate="no">
 <p class="m-0">${escapeHtml(about.aboutColumnFooter)}</p>
 ${renderCloseButton()}
-</div>
+</footer>
 </section>`;
 }
 
@@ -179,7 +179,7 @@ function renderPage(projects, about) {
 <!-- ==================================================================== -->
 <!-- SECTION: PROJECT GRID                                               -->
 <!-- ==================================================================== -->
-<div id="desktop-split" class="w-full max-w-full lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] lg:items-stretch lg:gap-8 lg:overflow-hidden">
+<main id="desktop-split" class="w-full max-w-full lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,65fr)_minmax(0,35fr)] lg:items-stretch lg:gap-8 lg:overflow-hidden">
 <div id="grid-column" class="min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:min-h-0 lg:max-w-full lg:overflow-x-hidden lg:overflow-y-auto">
 <div id="grid-section" class="view-panel min-w-0 max-w-full pb-16 pt-12 lg:pt-6">
 <div id="grid-audio-toggle-wrap" class="mx-4 mb-4 sm:mx-6 lg:m-0 lg:h-0 lg:min-h-0 lg:overflow-visible lg:border-0 lg:p-0">
@@ -192,7 +192,7 @@ ${renderGridColumnCopyright(about)}
 <div id="about-column" class="min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden lg:border-l lg:border-[#DADADA] lg:pl-6">
 ${renderAbout(about)}
 </div>
-</div>
+</main>
 ${renderImageViewer()}
 <audio id="bg-audio" loop preload="none">
 <source src="assets/audio/ambient.mp3" type="audio/mpeg" />
