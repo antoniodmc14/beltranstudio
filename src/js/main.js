@@ -166,13 +166,60 @@ function createLightboxZoomController(image, onZoomChange) {
   let pinchStartDistance = 0;
   let pinchStartScale = 1;
   let pinchActive = false;
+  let pinchMid = null;
+  let gestureWasPinch = false;
   let panAnchor = null;
   let lastTapTime = 0;
   let isDragging = false;
   let dragMoved = false;
 
+  const frameMetrics = () => {
+    const frame = image.parentElement;
+    const frameRect = frame.getBoundingClientRect();
+    const width = image.offsetWidth;
+    const height = image.offsetHeight;
+    const viewportW = frame.clientWidth;
+    const viewportH = frame.clientHeight;
+    return {
+      width,
+      height,
+      viewportW,
+      viewportH,
+      layoutLeft: frameRect.left + (viewportW - width) / 2,
+      layoutTop: frameRect.top + (viewportH - height) / 2,
+    };
+  };
+
+  const clientToLocal = (clientX, clientY) => {
+    const metrics = frameMetrics();
+    const originX = metrics.width / 2;
+    const originY = metrics.height / 2;
+    return {
+      localX: originX + (clientX - metrics.layoutLeft - originX - state.tx) / state.scale,
+      localY: originY + (clientY - metrics.layoutTop - originY - state.ty) / state.scale,
+    };
+  };
+
+  const translateForFocalPoint = (localX, localY, clientX, clientY, scale) => {
+    const metrics = frameMetrics();
+    const originX = metrics.width / 2;
+    const originY = metrics.height / 2;
+    return {
+      tx: clientX - metrics.layoutLeft - originX - (localX - originX) * scale,
+      ty: clientY - metrics.layoutTop - originY - (localY - originY) * scale,
+    };
+  };
+
+  const setTouchAction = (zoomed) => {
+    const value = zoomed ? "none" : "";
+    image.style.touchAction = value;
+    if (image.parentElement) image.parentElement.style.touchAction = value;
+  };
+
   const apply = () => {
+    image.style.transformOrigin = "center center";
     image.style.transform = `translate3d(${state.tx}px, ${state.ty}px, 0) scale(${state.scale})`;
+    setTouchAction(state.scale > 1.05);
     image.classList.toggle("cursor-zoom-in", state.scale <= 1.01);
     image.classList.toggle("cursor-zoom-out", state.scale > 1.01);
     image.classList.toggle("cursor-grab", state.scale > 1.01 && !isDragging);
@@ -185,10 +232,11 @@ function createLightboxZoomController(image, onZoomChange) {
     state.ty = 0;
     pinchActive = false;
     pinchStartDistance = 0;
+    pinchMid = null;
+    gestureWasPinch = false;
     panAnchor = null;
     isDragging = false;
     dragMoved = false;
-    image.style.transformOrigin = "center center";
     image.style.transition = "transform 0.2s ease-out";
     apply();
   };
@@ -196,12 +244,38 @@ function createLightboxZoomController(image, onZoomChange) {
   const isZoomed = () => state.scale > 1.01;
 
   const clampPan = () => {
-    const width = image.offsetWidth;
-    const height = image.offsetHeight;
-    const maxX = Math.max(0, (width * state.scale - width) / 2);
-    const maxY = Math.max(0, (height * state.scale - height) / 2);
-    state.tx = Math.max(-maxX, Math.min(maxX, state.tx));
-    state.ty = Math.max(-maxY, Math.min(maxY, state.ty));
+    const frame = image.parentElement;
+    if (!frame) return;
+    const viewportW = frame.clientWidth;
+    const viewportH = frame.clientHeight;
+    const scaledW = image.offsetWidth * state.scale;
+    const scaledH = image.offsetHeight * state.scale;
+
+    if (scaledW <= viewportW) {
+      state.tx = 0;
+    } else {
+      const minX = (viewportW - scaledW) / 2;
+      const maxX = (scaledW - viewportW) / 2;
+      state.tx = Math.max(minX, Math.min(maxX, state.tx));
+    }
+
+    if (scaledH <= viewportH) {
+      state.ty = 0;
+    } else {
+      const minY = (viewportH - scaledH) / 2;
+      const maxY = (scaledH - viewportH) / 2;
+      state.ty = Math.max(minY, Math.min(maxY, state.ty));
+    }
+  };
+
+  const zoomToFocalPoint = (clientX, clientY, scale) => {
+    const focal = clientToLocal(clientX, clientY);
+    state.scale = scale;
+    const next = translateForFocalPoint(focal.localX, focal.localY, clientX, clientY, scale);
+    state.tx = next.tx;
+    state.ty = next.ty;
+    clampPan();
+    apply();
   };
 
   const toggleZoom = (clientX, clientY) => {
@@ -211,14 +285,7 @@ function createLightboxZoomController(image, onZoomChange) {
       return;
     }
 
-    const rect = image.getBoundingClientRect();
-    const originX = ((clientX - rect.left) / rect.width) * 100;
-    const originY = ((clientY - rect.top) / rect.height) * 100;
-    image.style.transformOrigin = `${originX}% ${originY}%`;
-    state.scale = ZOOM_SCALE;
-    state.tx = 0;
-    state.ty = 0;
-    apply();
+    zoomToFocalPoint(clientX, clientY, ZOOM_SCALE);
   };
 
   const touchDistance = (touches) => {
@@ -241,8 +308,14 @@ function createLightboxZoomController(image, onZoomChange) {
     (event) => {
       if (event.touches.length === 2) {
         pinchActive = true;
+        gestureWasPinch = true;
         pinchStartDistance = touchDistance(event.touches);
         pinchStartScale = state.scale;
+        pinchMid = {
+          x: (event.touches[0].clientX + event.touches[1].clientX) / 2,
+          y: (event.touches[0].clientY + event.touches[1].clientY) / 2,
+        };
+        panAnchor = null;
         image.style.transition = "none";
         event.stopPropagation();
         return;
@@ -263,20 +336,29 @@ function createLightboxZoomController(image, onZoomChange) {
   image.addEventListener(
     "touchmove",
     (event) => {
-      if (event.touches.length === 2 && pinchStartDistance > 0) {
+      if (event.touches.length === 2 && pinchStartDistance > 0 && pinchMid) {
         event.preventDefault();
         event.stopPropagation();
         const distance = touchDistance(event.touches);
-        state.scale = Math.min(
+        const nextScale = Math.min(
           4,
           Math.max(1, pinchStartScale * (distance / pinchStartDistance)),
         );
+        const midX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+        const midY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+        const focal = clientToLocal(pinchMid.x, pinchMid.y);
+        state.scale = nextScale;
         if (state.scale <= 1.01) {
           state.scale = 1;
           state.tx = 0;
           state.ty = 0;
+        } else {
+          const next = translateForFocalPoint(focal.localX, focal.localY, midX, midY, state.scale);
+          state.tx = next.tx;
+          state.ty = next.ty;
+          clampPan();
         }
-        clampPan();
+        pinchMid = { x: midX, y: midY };
         apply();
         return;
       }
@@ -298,8 +380,18 @@ function createLightboxZoomController(image, onZoomChange) {
   image.addEventListener(
     "touchend",
     (event) => {
+      if (event.touches.length === 1 && state.scale > 1.05) {
+        const touch = event.touches[0];
+        panAnchor = { x: touch.clientX - state.tx, y: touch.clientY - state.ty };
+        isDragging = true;
+        pinchActive = false;
+        pinchStartDistance = 0;
+        pinchMid = null;
+        return;
+      }
+
       if (event.touches.length === 0) {
-        if (!pinchActive && !dragMoved && event.changedTouches.length === 1) {
+        if (!gestureWasPinch && !pinchActive && !dragMoved && event.changedTouches.length === 1) {
           const touch = event.changedTouches[0];
           const now = Date.now();
           if (now - lastTapTime < 300) {
@@ -319,6 +411,8 @@ function createLightboxZoomController(image, onZoomChange) {
 
         pinchActive = false;
         pinchStartDistance = 0;
+        pinchMid = null;
+        gestureWasPinch = false;
         panAnchor = null;
         isDragging = false;
       }
@@ -572,7 +666,7 @@ function initImageViewer() {
     const createSlide = (sourceImage) => {
       const slide = document.createElement("div");
       slide.className =
-        "image-viewer-slide flex h-full min-w-full snap-center items-center justify-center py-4 md:p-4";
+        "image-viewer-slide flex h-full w-full shrink-0 snap-center items-center justify-center p-4";
 
       const frame = document.createElement("div");
       frame.className =
@@ -586,7 +680,7 @@ function initImageViewer() {
       if (width) image.width = width;
       if (height) image.height = height;
       image.className =
-        "lightbox-image h-auto w-auto max-h-[75vh] max-w-full cursor-zoom-in select-none object-contain will-change-transform md:max-h-[80vh] md:max-w-[90vw]";
+        "lightbox-image h-auto w-auto max-h-full max-h-[75vh] max-w-full cursor-zoom-in select-none object-contain will-change-transform md:max-h-[80vh] md:max-w-[90vw]";
       image.draggable = false;
 
       zoomControllers.push(
